@@ -9,6 +9,6 @@ module.exports = [
     id: '4b6384af-e54a-4ea2-958b-22cc65b12234',
     name: 'Tom Tompson',
     age: 25,
-    hobbies: 'Bike'
+    hobbies: ['Bike']
   }
 ]

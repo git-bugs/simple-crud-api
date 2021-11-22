@@ -1,44 +1,72 @@
-const http = require('http');
 require('dotenv').config();
-const data = require('./db');
+const http = require('http');
+let data = require('./db');
 const { validate } = require('uuid');
+const Person = require('./models/Person');
+const CustomError = require('./models/Error');
 
 const routes = (req, res) => {
-
-  if (req.method === 'GET' && req.url === '/person') {
-    res.writeHead(200);
-    res.end(JSON.stringify(data));
-  } else if (req.method === 'GET' && req.url.match(/^\/person\//) && req.url.split('/').length === 3) {
-    const id = req.url.split('/')[2];
-    if (!validate(id)) {
-      res.writeHead(400);
-      res.end('Not valid id ' + id);
-      return;
+  try {
+    let personId = null;
+    if (req.url.match(/^\/person\//) && req.url.split('/').length === 3) {
+      personId = req.url.split('/')[2];
     }
-    const person = data.find(item => item.id === id);
-    if (!person) {
-      res.writeHead(404);
-      res.end('Person not found');
-      return;
+    if (req.method === 'GET' && req.url === '/person') {
+      res.writeHead(200);
+      res.end(JSON.stringify(data));
+    } else if (req.method === 'GET' && personId) {
+      if (!validate(personId)) throw new CustomError(400, `Not valid id - ${personId}`);
+      const person = data.find(item => item.id === personId);
+      if (!person) throw new CustomError(404, 'Person not found');
+      res.writeHead(200);
+      res.end(JSON.stringify(person));
+    } else if (req.method === 'POST' && req.url === '/person') {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk.toString();
+      })
+      req.on('end', () => {
+        const { name, age, hobbies } = JSON.parse(body);
+        if (!name || !age || !hobbies) throw new CustomError(400, 'The fields "name", "age", "hobbies" is required');
+        const person = new Person(name, age, hobbies);
+        data.push(person);
+        res.writeHead(201);
+        res.end(JSON.stringify(person));
+      })
+    } else if (req.method === 'PUT' && personId) {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk.toString();
+      })
+      req.on('end', () => {
+        const { name, age, hobbies } = JSON.parse(body);
+        if (!name || !age || !hobbies) throw new CustomError(400, 'The fields "name", "age", "hobbies" is required');
+        if (!validate(personId)) throw new CustomError(400, `Not valid id - ${personId}`);
+        const person = data.find(item => item.id === personId);
+        if (!person) throw new CustomError(404, 'Person not found');
+        const updatedPerson = { id: personId, name, age, hobbies };
+        data = data.map(item => item.id === personId ? item = { ...updatedPerson } : item)
+        res.writeHead(200);
+        res.end(JSON.stringify(updatedPerson));
+      })
+    } else if (req.method === 'DELETE' && personId) {
+      
+    } else {
+      throw new CustomError(404, 'Page not found');
     }
-    res.writeHead(200);
-    res.end(JSON.stringify(person))
-  } else if (req.method === 'POST') {
-    let body = ''
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    })
-    req.on('end', () => {
-      console.log(body);
+  } catch (error) {
+    errorHandler(error, res)
+  }
+}
 
-    })
-  } else if (req.method === 'PUT') {
-
-  } else if (req.method === 'DELETE') {
-
+const errorHandler = (error, res) => {
+  const { status, message, custom } = error;
+  if (custom) {
+    res.writeHead(status);
+    res.end(JSON.stringify({ message }));
   } else {
-    res.writeHead(404);
-    res.end('Page not found');
+    res.writeHead(500);
+    res.end({ message: 'Server error' });
   }
 }
 
