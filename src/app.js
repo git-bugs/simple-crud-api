@@ -9,8 +9,7 @@ const routes = (req, res) => {
 };
 
 const port = process.env.PORT || 5000;
+
 const server = http.createServer(routes);
-
-
 server.listen(port, () => console.log(`Launched on port: ${port}`));
 
